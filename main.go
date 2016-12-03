@@ -7,11 +7,17 @@ type Graph struct {
 	Nodes map[int]*Node
 }
 
+// Edge represents to a connection between two nodes
+type Edge struct {
+	origin      *Node
+	destination *Node
+}
+
 // Node represents a node in the graph
 type Node struct {
 	Label int
 	Graph *Graph
-	Nodes map[int]*Node
+	Edges []*Edge
 }
 
 // NewGraph initialize a new graph
@@ -23,19 +29,21 @@ func NewGraph() *Graph {
 
 // Add a node to the graph
 func (g *Graph) Add(label int) *Node {
-	node := &Node{Label: label, Graph: g, Nodes: make(map[int]*Node)}
+	node := &Node{Label: label, Graph: g}
 	g.Nodes[label] = node
 	return node
 }
 
-// Relate two nodes
-func (n *Node) Relate(label int) {
-	relative := n.Graph.Nodes[label]
-
-	if relative == nil {
-		panic(fmt.Sprintf("Unknown node: %v", label))
+// Connect two nodes creating an Edge
+func (g *Graph) Connect(a, b *Node) *Edge {
+	if a == b {
+		panic(fmt.Sprintf("Cannot add self-loop: %v", a.Label))
 	}
 
-	relative.Nodes[n.Label] = n
-	n.Nodes[relative.Label] = relative
+	edge := &Edge{origin: a, destination: b}
+
+	a.Edges = append(a.Edges, edge)
+	b.Edges = append(b.Edges, edge)
+
+	return edge
 }
