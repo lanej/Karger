@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,129 +10,37 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGraphAdd(t *testing.T) {
-	graph := NewGraph()
-	node := graph.Add(3)
+func TestSampleCase1(t *testing.T) {
+	graph := homeworkGraph("testcase1.txt")
 
-	if graph.Nodes[3] != node {
-		t.Error("Failed to add node to graph")
-	}
+	mincut := graph.mincut()
+
+	assert.Equal(t, 2, mincut)
 }
 
-func TestGraphConnect(t *testing.T) {
-	graph := NewGraph()
-	node1 := graph.Add(3)
-	node2 := graph.Add(6)
+func TestSampleCase2(t *testing.T) {
+	graph := homeworkGraph("testcase2.txt")
 
-	edge := graph.Connect(node1, node2)
+	mincut := graph.mincut()
 
-	if edge.origin != node1 {
-		t.Errorf("Expected edge.origin = %v, actual = %v", node1, edge.origin)
-	}
-
-	if edge.destination != node2 {
-		t.Errorf("Expected edge.destination = %v, actual = %v", node1, edge.destination)
-	}
-
-	assert.Contains(t, node1.Edges, edge)
-	assert.Contains(t, node2.Edges, edge)
+	assert.Equal(t, 2, mincut)
 }
 
-func TestNodeContract1(t *testing.T) {
-	graph := NewGraph()
+func TestAssignment(t *testing.T) {
+	graph := homeworkGraph("mincut.txt")
 
-	node1 := graph.Add(1)
-	node2 := graph.Add(2)
-	node3 := graph.Add(3)
+	minCutSize := graph.mincut(19990)
 
-	graph.Connect(node1, node2)
-	graph.Connect(node2, node3)
-	edge := graph.Connect(node3, node1)
-
-	supernode := edge.Contract()
-	assert.Equal(t, 4, supernode.Label, "Failed to add the labels together")
-
-	var vertices []int
-
-	for _, edge := range supernode.Edges {
-		vertices = []int{edge.origin.Label, edge.destination.Label}
-		sort.Ints(vertices)
-		assert.Equal(t, []int{2, 4}, vertices, "Edge contraction failed")
-	}
+	fmt.Printf("Mincut Size: %v\n", minCutSize)
 }
 
-func TestNodeContact2(t *testing.T) {
-	graph := NewGraph()
+func homeworkGraph(filename string) *Graph {
+	input := integersFromFile(filename)
 
-	node1 := graph.Add(1)
-	node2 := graph.Add(2)
-	node3 := graph.Add(3)
-	node4 := graph.Add(4)
-
-	graph.Connect(node1, node3)
-	edge1 := graph.Connect(node2, node3)
-	edge2 := graph.Connect(node4, node3)
-
-	edge1.Contract()
-
-	graph.print()
-
-	edge2.Contract()
-
-	graph.print()
+	return &Graph{List: input}
 }
 
-func TestMinCut1(t *testing.T) {
-	graph := NewGraph()
-
-	node1 := graph.Add(1)
-	node2 := graph.Add(2)
-	node3 := graph.Add(3)
-
-	graph.Connect(node1, node2)
-	graph.Connect(node2, node3)
-	graph.Connect(node3, node1)
-
-	minCutSize := graph.MinCut()
-
-	assert.Equal(t, 2, minCutSize, "Invalid MinCut result")
-}
-
-func TestMinCut2(t *testing.T) {
-	graph := NewGraph()
-
-	node1 := graph.Add(1)
-	node2 := graph.Add(2)
-	node3 := graph.Add(3)
-	node4 := graph.Add(4)
-
-	graph.Connect(node1, node3)
-	graph.Connect(node2, node3)
-	graph.Connect(node4, node3)
-
-	minCutSize := graph.MinCut()
-
-	assert.Equal(t, 1, minCutSize, "Invalid MinCut result")
-}
-
-func TestHomework(t *testing.T) {
-	input := integersFromFile("mincut.txt")
-	graph := NewGraph()
-
-	for _, row := range input {
-		node := graph.Add(row[0])
-		for _, i := range row[1:] {
-			relative := graph.Add(i)
-			graph.Connect(node, relative)
-		}
-	}
-
-	minCutSize := graph.MinCut()
-
-	fmt.Printf("MinCut Size: %v", minCutSize)
-}
-
-func integersFromFile(s string) [][]int {
+func integersFromFile(s string) map[int][]int {
 	inputBytes, err := ioutil.ReadFile(s)
 
 	if err != nil {
@@ -142,10 +49,14 @@ func integersFromFile(s string) [][]int {
 
 	inputString := string(inputBytes[:])
 	rawRows := strings.Split(inputString, "\n")
-	data := make([][]int, len(rawRows)-1)
+	data := make(map[int][]int)
 
-	for row, i := range rawRows {
+	for _, i := range rawRows {
 		values := strings.Split(i, "\t")
+
+		if len(values) < 2 {
+			values = strings.Split(i, " ")
+		}
 
 		cols := []int{}
 
@@ -158,7 +69,7 @@ func integersFromFile(s string) [][]int {
 		}
 
 		if len(cols) > 0 {
-			data[row] = cols
+			data[cols[0]] = cols[1:]
 		}
 	}
 

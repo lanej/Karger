@@ -7,121 +7,120 @@ import (
 
 // Graph represents a collection of nodes
 type Graph struct {
-	Nodes map[int]*Node
-	Edges []*Edge
+	List map[int][]int
 }
 
-// Edge represents to a connection between two nodes
-type Edge struct {
-	origin      *Node
-	destination *Node
-}
-
-// Node represents a node in the graph
-type Node struct {
-	Label int
-	Graph *Graph
-	Edges []*Edge
-}
-
-// NewGraph initialize a new graph
-func NewGraph() *Graph {
-	var graph Graph
-	graph.Nodes = make(map[int]*Node)
-	return &graph
-}
-
-// Add a node to the graph
-func (g *Graph) Add(label int) *Node {
-	existing := g.Nodes[label]
-	if existing != nil {
-		return existing
+func (g *Graph) vertices() []int {
+	var keys []int
+	for key := range g.List {
+		keys = append(keys, key)
 	}
-	node := &Node{Label: label, Graph: g}
-	g.Nodes[label] = node
-	return node
+	return keys
 }
 
-// Connect two nodes creating an Edge
-func (g *Graph) Connect(a, b *Node) *Edge {
-	if a == b {
-		panic(fmt.Sprintf("Cannot add self-loop: %v", a.Label))
-	}
+func (g *Graph) randomVertices() (int, int) {
+	// Make a list of verticies
+	vertices := g.vertices()
 
-	edge := &Edge{origin: a, destination: b}
+	// Choose a random vertex
+	v1Index := rand.Intn(len(vertices))
+	v1 := vertices[v1Index]
+	connectedV1 := g.List[v1]
 
-	a.Edges = append(a.Edges, edge)
-	b.Edges = append(b.Edges, edge)
-	g.Edges = append(g.Edges, edge)
+	// Choose a random connected vertex
+	v2Index := rand.Intn(len(connectedV1))
+	v2 := g.List[v1][v2Index]
 
-	return edge
+	return v1, v2
 }
 
-// Reconnect edge
-func (from *Node) Reconnect(to *Node, not *Edge) {
-	for _, edge := range from.Edges {
-		if edge == not {
-			// do not process contracting edge
-		} else if edge.destination == from {
-			edge.destination = to
-			to.Edges = append(to.Edges, edge)
-		} else {
-			edge.origin = to
-			to.Edges = append(to.Edges, edge)
-		}
-	}
-}
+func (g *Graph) contract() {
+	// Pick an edge
+	v1, v2 := g.randomVertices()
 
-// Contract an edge
-func (e *Edge) Contract() *Node {
-	origin := e.origin
-	destination := e.destination
-	graph := origin.Graph
+	// Connect edge
+	g.List[v1] = append(g.List[v1], g.List[v2]...)
 
-	supernode := graph.Add(origin.Label + destination.Label)
-
-	origin.Reconnect(supernode, e)
-	destination.Reconnect(supernode, e)
-
-	delete(graph.Nodes, origin.Label)
-	delete(graph.Nodes, destination.Label)
-
-	var edgeIndex int
-	for index, gEdge := range graph.Edges {
-		if gEdge == e {
-			edgeIndex = index
-			break
+	// Repoint neighbors
+	for _, neighbor := range g.List[v2] {
+		for i, v := range g.List[neighbor] {
+			if v == v2 {
+				g.List[neighbor][i] = v1
+			}
 		}
 	}
 
-	graph.Edges = append(graph.Edges[:edgeIndex], graph.Edges[(edgeIndex+1):]...)
+	// Delete self-loops
+	var selfless []int
+	for _, v := range g.List[v1] {
+		if v != v1 {
+			selfless = append(selfless, v)
+		}
+	}
+	g.List[v1] = selfless
 
-	return supernode
+	// Remove edge
+	delete(g.List, v2)
 }
 
-// MinCut returns the size of the calculated MinCut using Krager's Random Contraction algorithm
-func (g *Graph) MinCut() int {
-	var index int
-	var edge *Edge
-
-	for len(g.Nodes) > 2 {
-		index = rand.Intn(len(g.Edges))
-		edge = g.Edges[index]
-
-		edge.Contract()
-
-		fmt.Printf("nodes remaining: %v, edges remaining: %v\n", len(g.Nodes), len(g.Edges))
+func (g *Graph) karger() int {
+	for len(g.vertices()) > 2 {
+		g.contract()
 	}
 
-	return len(g.Edges)
+	firstVertex := g.vertices()[0]
+	edges := g.List[firstVertex]
+
+	return len(edges)
+}
+
+func (g *Graph) mincut(args ...int) int {
+	min := len(g.List)
+	var target *Graph
+
+	var trials uint64
+	if len(args) == 1 {
+		trials = uint64(args[0])
+	} else {
+		trials = nChooseK(uint64(len(g.List)), uint64(2))
+	}
+
+	for i := uint64(0); i < trials; i++ {
+		target = g.clone()
+		cutSize := target.karger()
+		if cutSize < min {
+			min = cutSize
+		}
+	}
+
+	return min
+}
+
+func (g *Graph) clone() *Graph {
+	newList := make(map[int][]int)
+	for key, val := range g.List {
+		newList[key] = val
+	}
+	return &Graph{List: newList}
 }
 
 func (g *Graph) print() {
-	for index, edge := range g.Edges {
-		fmt.Printf("Edge #%v: [%v, %v]\n", index, edge.destination.Label, edge.origin.Label)
+	fmt.Println("Graph :")
+	for key := range g.List {
+		fmt.Printf("%v - %v\n", key, g.List[key])
 	}
 }
 
-func (e *Edge) print() {
-	fmt.Printf("Edge [%v, %v]\n", e.destination.Label, e.origin.Label)
+func nChooseK(n, k uint64) uint64 {
+	return factorial(n) / (factorial(k) * factorial(n-k))
+}
+
+func factorial(x uint64) uint64 {
+	var result uint64
+	if x < 1 {
+		result = 1
+	} else {
+		result = x * factorial(x-1)
+	}
+	return result
 }
